@@ -7,6 +7,7 @@ import com.reservation.resource.exception.ResourceNotFoundException;
 import com.reservation.resource.repository.ResourceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -27,22 +28,28 @@ public class ResourceService {
         resource.setHourlyPrice(request.hourlyPrice());
         resource.setOpenTime(request.openTime());
         resource.setCloseTime(request.closeTime());
-
         Resource saved = repository.save(resource);
         return ResourceResponse.from(saved);
     }
 
     public ResourceResponse findById(Long id) {
-        Resource resource = repository.findById(id)
+        Resource resource = repository.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new ResourceNotFoundException(id));
         return ResourceResponse.from(resource);
     }
 
     public List<ResourceResponse> findAll() {
-        return repository.findAll()
+        return repository.findByActiveTrue()
                 .stream()
                 .map(ResourceResponse::from)
                 .toList();
 
+    }
+
+    @Transactional
+    public void deactivate(Long id) {
+        Resource resource = repository.findByIdAndActiveTrue(id)
+                .orElseThrow(() -> new ResourceNotFoundException(id));
+        resource.setActive(false);
     }
 }
