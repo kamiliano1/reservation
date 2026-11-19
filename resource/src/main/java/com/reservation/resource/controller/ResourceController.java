@@ -42,6 +42,11 @@ public class ResourceController {
         return ResponseEntity.created(location).body(created);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<ResourceResponse> update(@PathVariable Long id, @Valid @RequestBody ResourceRequest request) {
+        return ResponseEntity.ok(resourceService.update(id, request));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         resourceService.deactivate(id);

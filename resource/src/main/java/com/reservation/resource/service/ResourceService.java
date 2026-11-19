@@ -18,18 +18,35 @@ public class ResourceService {
 
     private final ResourceRepository repository;
 
-    public ResourceResponse create(ResourceRequest request) {
+    private void validateHours(ResourceRequest request) {
         if (!request.openTime().isBefore(request.closeTime())) {
             throw new IllegalArgumentException("Opening time must be before close time");
         }
-        Resource resource = new Resource();
+    }
+
+    private void applyRequest(Resource resource, ResourceRequest request) {
         resource.setName(request.name());
         resource.setType(request.type());
         resource.setHourlyPrice(request.hourlyPrice());
         resource.setOpenTime(request.openTime());
         resource.setCloseTime(request.closeTime());
+    }
+
+    public ResourceResponse create(ResourceRequest request) {
+        validateHours(request);
+        Resource resource = new Resource();
+        applyRequest(resource, request);
         Resource saved = repository.save(resource);
         return ResourceResponse.from(saved);
+    }
+
+    @Transactional
+    public ResourceResponse update(Long id, ResourceRequest request) {
+        validateHours(request);
+        Resource resource = repository.findByIdAndActiveTrue(id)
+                .orElseThrow(() -> new ResourceNotFoundException(id));
+        applyRequest(resource, request);
+        return ResourceResponse.from(resource);
     }
 
     public ResourceResponse findById(Long id) {
