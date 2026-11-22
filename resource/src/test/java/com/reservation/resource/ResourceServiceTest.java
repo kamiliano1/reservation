@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.datasource.url=jdbc:postgresql://localhost:1/test",
 })
 @Import(TestcontainersConfiguration.class)
-public class ResourceServiceIT {
+public class ResourceServiceTest {
     @Autowired
     ResourceService service;
 
@@ -78,7 +78,7 @@ public class ResourceServiceIT {
     }
 
     @Test
-    void throwsWhenResourceNotFound() {
+    void throwWhenResourceNotFound() {
         // when + then
         assertThatThrownBy(() -> service.findById(1111L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -86,7 +86,7 @@ public class ResourceServiceIT {
     }
 
     @Test
-    void throwsWhenWrongHours() {
+    void throwWhenWrongHours() {
         // given
         ResourceRequest request = request(LocalTime.of(19, 0), LocalTime.of(13, 0));// when + then
         assertThatThrownBy(() -> service.create(request))
@@ -95,7 +95,7 @@ public class ResourceServiceIT {
     }
 
     @Test
-    void throwsWhenSameHours() {
+    void throwWhenSameHours() {
         // given
         ResourceRequest request = request(LocalTime.of(13, 0), LocalTime.of(13, 0)); // when + then
         assertThatThrownBy(() -> service.create(request))
@@ -104,7 +104,7 @@ public class ResourceServiceIT {
     }
 
     @Test
-    void throwsWhenResourceDeleted() {
+    void throwWhenResourceDeleted() {
         // given
         ResourceRequest request = request();
         ResourceResponse result = service.create(request);
@@ -115,6 +115,19 @@ public class ResourceServiceIT {
         assertThatThrownBy(() -> service.findById(id))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining(String.valueOf(id));
+    }
+
+    @Test
+    void deactivateMarksResourceInactiveAndHidesIt() {
+        // given
+        ResourceRequest request = request();
+        ResourceResponse result = service.create(request);
+        Long id = result.id();
+        // when
+        service.deactivate(id);
+        // then
+        Resource deactivated = repository.findById(id).orElseThrow();
+        assertThat(deactivated.isActive()).isFalse();
     }
 
     @Test
