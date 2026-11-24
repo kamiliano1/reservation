@@ -1,4 +1,4 @@
-package exception;
+package com.reservation.booking.exception;
 
 public class BookingConflictException extends RuntimeException {
     public BookingConflictException() {
