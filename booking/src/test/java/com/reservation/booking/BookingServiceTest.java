@@ -12,6 +12,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,94 +33,122 @@ public class BookingServiceTest {
         repository.deleteAll();
     }
 
-    private Booking bookingConfirmed(Long resourceId, String startTime, String endTime) {
+    private Booking booking(Long resourceId, long startTime, long endTime, BookingStatus status) {
         Booking booking = new Booking();
         booking.setResourceId(resourceId);
         booking.setUserId("New User");
-        booking.setStartTime(Instant.parse("2025-12-27T" + startTime + ":00:00Z"));
-        booking.setEndTime(Instant.parse("2025-12-27T" + endTime + ":00:00Z"));
-        booking.setStatus(BookingStatus.CONFIRMED);
-        booking.setCreatedAt(Instant.now());
-        booking.setUpdatedAt(Instant.now());
-        return booking;
-    }
-
-    private Booking bookingCancelled(Long resourceId, String startTime, String endTime) {
-        Booking booking = new Booking();
-        booking.setResourceId(resourceId);
-        booking.setUserId("New User");
-        booking.setStartTime(Instant.parse("2025-12-27T" + startTime + ":00:00Z"));
-        booking.setEndTime(Instant.parse("2025-12-27T" + endTime + ":00:00Z"));
-        booking.setStatus(BookingStatus.CANCELLED);
-        booking.setCreatedAt(Instant.now());
-        booking.setUpdatedAt(Instant.now());
+        Instant time = Instant.parse("2026-07-10T00:00:00Z");
+        booking.setStartTime(time.plusSeconds(3600 * startTime));
+        booking.setEndTime(time.plusSeconds(3600 * endTime));
+        booking.setStatus(status);
         return booking;
     }
 
     @Test
     void createBooking() {
-        // given + when
-        Booking booking = repository.saveAndFlush(bookingConfirmed(11L, "12", "13"));
+        // given
+        Booking booking = repository.saveAndFlush(booking(11L, 12, 13, BookingStatus.CONFIRMED));
+        // when
         Booking imported = repository.findById(booking.getId()).orElseThrow();
         // then
         assertThat(booking.getId()).isEqualTo(imported.getId());
     }
 
     @Test
-    void throwWhenTwoReservationsWithSameResourceIdConfirmedAndTimesOverlay() {
+    void throwWhenTwoReservationsWithSameResourceIdConfirmedAndTimesOverlap() {
         // given
-        repository.saveAndFlush(bookingConfirmed(11L, "12", "14"));
+        repository.saveAndFlush(booking(11L, 12, 14, BookingStatus.CONFIRMED));
         // when + then
-        assertThatThrownBy(() -> repository.saveAndFlush(bookingConfirmed(11L, "13", "14")))
+        assertThatThrownBy(() -> repository.saveAndFlush(booking(11L, 13, 14, BookingStatus.CONFIRMED)))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("no_overlapping_bookings");
     }
 
     @Test
-    void whenTwoReservationsWithTheSameResourceIdConfirmedAndTimesNotOverlay() {
-        // given + when
-        repository.saveAndFlush(bookingConfirmed(11L, "12", "13"));
-        repository.saveAndFlush(bookingConfirmed(11L, "13", "14"));
-        List<Booking> bookingList = repository.findAll();
+    void throwWhenTwoReservationsWithSameResourceIdPendingAndTimesOverlap() {
+        // given
+        repository.saveAndFlush(booking(11L, 12, 14, BookingStatus.PENDING));
+        // when + then
+        assertThatThrownBy(() -> repository.saveAndFlush(booking(11L, 13, 14, BookingStatus.PENDING)))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("no_overlapping_bookings");
+    }
+
+    @Test
+    void whenTwoReservationsWithTheSameResourceIdConfirmedAndTimesNotOverlap() {
+        // given
+        repository.saveAndFlush(booking(11L, 12, 13, BookingStatus.CONFIRMED));
+        // when
+        repository.saveAndFlush(booking(11L, 13, 14, BookingStatus.CONFIRMED));
         // then
+        List<Booking> bookingList = repository.findAll();
         assertThat(bookingList).hasSize(2);
     }
 
     @Test
-    void whenTwoReservationsWithTheDifferentResourceIdConfirmedAndTimesOverlay() {
-        // given + when
-        repository.saveAndFlush(bookingConfirmed(11L, "12", "13"));
-        repository.saveAndFlush(bookingConfirmed(12L, "12", "13"));
-        List<Booking> bookingList = repository.findAll();
+    void whenTwoReservationsWithTheSameResourceIdConfirmedAndTimesNotOverlapSecondWay() {
+        // given
+        repository.saveAndFlush(booking(11L, 13, 14, BookingStatus.CONFIRMED));
+        // when
+        repository.saveAndFlush(booking(11L, 12, 13, BookingStatus.CONFIRMED));
         // then
+        List<Booking> bookingList = repository.findAll();
         assertThat(bookingList).hasSize(2);
     }
 
     @Test
-    void whenTwoReservationsWithTheSameResourceIdConfirmedAndCancelledTimesOverlay() {
-        // given + when
-        repository.saveAndFlush(bookingConfirmed(11L, "12", "13"));
-        repository.saveAndFlush(bookingCancelled(11L, "12", "13"));
-        List<Booking> bookingList = repository.findAll();
+    void whenTwoReservationsWithTheDifferentResourceIdConfirmedAndTimesOverlap() {
+        // given
+        repository.saveAndFlush(booking(11L, 12, 13, BookingStatus.CONFIRMED));
+        //  when
+        repository.saveAndFlush(booking(12L, 12, 13, BookingStatus.CONFIRMED));
         // then
+        List<Booking> bookingList = repository.findAll();
         assertThat(bookingList).hasSize(2);
     }
 
     @Test
-    void whenTwoReservationsWithTheSameResourceIdCancelledAndConfirmedTimesOverlay() {
-        // given + when
-        repository.saveAndFlush(bookingCancelled(11L, "12", "13"));
-        repository.saveAndFlush(bookingConfirmed(11L, "12", "13"));
-        List<Booking> bookingList = repository.findAll();
+    void whenTwoReservationsWithTheSameResourceIdConfirmedAndCancelledTimesOverlap() {
+        // given
+        repository.saveAndFlush(booking(11L, 12, 13, BookingStatus.CONFIRMED));
+        // when
+        repository.saveAndFlush(booking(11L, 12, 13, BookingStatus.CANCELLED));
         // then
+        List<Booking> bookingList = repository.findAll();
+        assertThat(bookingList).hasSize(2);
+    }
+
+    @Test
+    void whenTwoReservationsWithTheSameResourceIdCancelledAndConfirmedTimesOverlap() {
+        // given
+        repository.saveAndFlush(booking(11L, 12, 13, BookingStatus.CANCELLED));
+        // when
+        repository.saveAndFlush(booking(11L, 12, 13, BookingStatus.CONFIRMED));
+        // then
+        List<Booking> bookingList = repository.findAll();
         assertThat(bookingList).hasSize(2);
     }
 
     @Test
     void throwWhenWrongHours() {
         // given + when + then
-        assertThatThrownBy(() -> repository.saveAndFlush(bookingCancelled(11L, "14", "13")))
+        assertThatThrownBy(() -> repository.saveAndFlush(booking(11L, 14, 13, BookingStatus.CONFIRMED)))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("chk_booking_times");
+    }
+
+    @Test
+    void whenReservationCreatedAsConfirmedSwitchedToCancelledAndSecondConfirmedWithTheSameHours() {
+        // given
+        Booking booking = repository.saveAndFlush(booking(11L, 12, 13, BookingStatus.CONFIRMED));
+        booking.setStatus(BookingStatus.CANCELLED);
+        // when
+        repository.saveAndFlush(booking);
+        repository.saveAndFlush(booking(12L, 12, 13, BookingStatus.CONFIRMED));
+        // then
+        List<Booking> bookingList = repository.findAll();
+        assertThat(bookingList).hasSize(2);
+        assertThat(bookingList).extracting(Booking::getStatus)
+                .containsExactly(BookingStatus.CANCELLED, BookingStatus.CONFIRMED);
     }
 }
