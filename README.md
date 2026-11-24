@@ -9,7 +9,13 @@ Java 21, Spring Boot 4, PostgreSQL, Spring Data JPA/Hibernate, Maven, Lombok, Fl
 
 ## Status
 
-Resource service is completed. Booking service is planned.
+Resource service is completed. Booking service is in progress.
+
+## Plan
+
+- Reservation confirmation
+- Cancel of reservation
+- Switch to Expired after 10 minutes of not completed it
 
 ## Getting started
 

@@ -10,15 +10,17 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class BookingService {
 
     private final BookingRepository repository;
 
-    private void validateHours(BookingRequest request) {
+    private void validateTime(BookingRequest request) {
         if (!request.startTime().isBefore(request.endTime())) {
-            throw new IllegalArgumentException("Opening time must be before close time");
+            throw new IllegalArgumentException("Start time must be before end time");
         }
     }
 
@@ -31,7 +33,7 @@ public class BookingService {
     }
 
     public BookingResponse create(BookingRequest request) {
-        validateHours(request);
+        validateTime(request);
         Booking booking = new Booking();
         applyRequest(booking, request);
         try {
@@ -43,5 +45,12 @@ public class BookingService {
             }
             throw ex;
         }
+    }
+
+    public List<BookingResponse> findAll() {
+        return repository.findAll()
+                .stream()
+                .map(BookingResponse::from)
+                .toList();
     }
 }
