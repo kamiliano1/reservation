@@ -14,8 +14,14 @@ Resource service is completed. Booking service is in progress.
 ## Plan
 
 - Reservation confirmation
-- Cancel of reservation
 - Switch to Expired after 10 minutes of not completed it
+
+## Limitations
+
+- Booking
+    - UserId comes from Request, not Keycloak
+    - Everyone can cancel other booking
+    - Pending is not disappear automatically
 
 ## Getting started
 
@@ -126,6 +132,9 @@ Location: http://localhost:8081/api/resources/62
   "status": 400,
   "title": "Bad Request"
 }
+````
+
+```json
 {
   "detail": "Validation failed",
   "instance": "/api/resources",
@@ -232,6 +241,96 @@ curl -X DELETE http://localhost:8081/api/resources/62
 |--------|--------------------|
 | 204    | Resource deleted   |
 | 404    | Resource not found |
+
+#### POST /api/bookings
+
+Create a new booking.
+
+##### Request Body
+
+| Parameter  | Type    | Required | Description                                                 |
+|------------|---------|----------|-------------------------------------------------------------|
+| userId     | string  | Yes      | userId now is from Request, in future will be from Keycloak |
+| resourceId | Long    | Yes      | ResourceId                                                  |
+| startTime  | Instant | Yes      | Beginning of booking                                        |
+| endTime    | Instant | Yes      | Ending of booking                                           |
+
+##### Example Request
+
+```bash
+curl -X POST http://localhost:8082/api/bookings \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId":"John",
+    "resourceId":12,
+    "startTime":"2027-01-01T11:00:00Z",
+    "endTime":"2027-01-01T12:00:00Z"
+}'
+```
+
+##### Example Response
+
+```http
+Location: 	http://localhost:8082/api/bookings/12
+```
+
+```json
+{
+  "id": 12,
+  "resourceId": 12,
+  "userId": "John",
+  "startTime": "2027-01-01T11:00:00Z",
+  "endTime": "2027-01-01T12:00:00Z",
+  "status": "PENDING"
+}
+```
+
+##### Status Codes
+
+| Status | Meaning                           |
+|--------|-----------------------------------|
+| 201    | Booking created                   |
+| 400    | Wrong data provided               |
+| 409    | Already booked in this time range |
+
+```json
+{
+  "detail": "Resource is already booked in this time range",
+  "instance": "/api/bookings",
+  "status": 409,
+  "title": "Conflict"
+}
+````
+
+```json
+{
+  "detail": "Validation failed",
+  "instance": "/api/bookings",
+  "status": 400,
+  "title": "Bad Request",
+  "errors": {
+    "resourceId": "must not be null"
+  }
+}
+```
+
+#### DELETE /api/bookings/{id}
+
+Delete switch status to CANCELLED and free space
+
+##### Example Request
+
+```bash
+curl -X DELETE http://localhost:8082/api/bookings/62
+```
+
+##### Status Codes
+
+| Status | Meaning                                                        |
+|--------|----------------------------------------------------------------|
+| 204    | Booking deleted                                                |
+| 404    | Booking not found                                              |
+| 409    | Resource can't be Cancelled if has Cancelled of Expired status |
 
 ## Design decisions
 

@@ -4,8 +4,11 @@ import com.reservation.booking.dto.BookingRequest;
 import com.reservation.booking.dto.BookingResponse;
 import com.reservation.booking.entity.Booking;
 import com.reservation.booking.entity.BookingStatus;
+import com.reservation.booking.exception.BookingNotFoundException;
+import com.reservation.booking.exception.BookingNotCancellableException;
 import com.reservation.booking.repository.BookingRepository;
 import com.reservation.booking.exception.BookingConflictException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -45,6 +48,17 @@ public class BookingService {
             }
             throw ex;
         }
+    }
+
+    @Transactional
+    public void cancel(Long id) {
+        Booking booking = repository.findById(id)
+                .orElseThrow(() -> new BookingNotFoundException(id));
+        BookingStatus status = booking.getStatus();
+        if (status != BookingStatus.CONFIRMED && status != BookingStatus.PENDING) {
+            throw new BookingNotCancellableException(status);
+        }
+        booking.setStatus(BookingStatus.CANCELLED);
     }
 
     public List<BookingResponse> findAll() {
