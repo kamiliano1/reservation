@@ -5,6 +5,8 @@ import com.reservation.booking.dto.BookingResponse;
 import com.reservation.booking.entity.Booking;
 import com.reservation.booking.entity.BookingStatus;
 import com.reservation.booking.exception.BookingConflictException;
+import com.reservation.booking.exception.BookingNotFoundException;
+import com.reservation.booking.exception.BookingNotCancellableException;
 import com.reservation.booking.repository.BookingRepository;
 import com.reservation.booking.service.BookingService;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,12 +14,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -143,4 +143,79 @@ public class BookingServiceTest {
                 .hasMessageContaining("Start time must be before end time");
     }
 
+    @Test
+    void whenCancel() {
+        // given
+        BookingResponse response = service.create(booking(11L, 10, 12));
+        Long id = response.id();
+        // when
+        service.cancel(id);
+        // then
+        Booking booking = repository.findById(id).orElseThrow();
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.CANCELLED);
+    }
+
+    @Test
+    void throwWhenNotExistingCancel() {
+        // given + when + then
+        assertThatThrownBy(() -> service.cancel(1000L))
+                .isInstanceOf(BookingNotFoundException.class)
+                .hasMessageContaining("1000");
+    }
+
+    @Test
+    void throwWhenCancelCancelled() {
+        // given
+        BookingResponse response = service.create(booking(11L, 10, 12));
+        Long id = response.id();
+        service.cancel(id);
+        // when + then
+        assertThatThrownBy(() -> service.cancel(id))
+                .isInstanceOf(BookingNotCancellableException.class)
+                .hasMessageContaining("CANCELLED");
+    }
+
+    @Test
+    void throwWhenConfirmedCancel() {
+        // given
+        BookingResponse response = service.create(booking(11L, 10, 12));
+        Long id = response.id();
+        Booking stored = repository.findById(id).orElseThrow();
+        stored.setStatus(BookingStatus.EXPIRED);
+        repository.save(stored);
+        // when + then
+        assertThatThrownBy(() -> service.cancel(id))
+                .isInstanceOf(BookingNotCancellableException.class)
+                .hasMessageContaining("CONFIRMED");
+    }
+
+    @Test
+    void throwWhenExpiredCancel() {
+        // given
+        BookingResponse response = service.create(booking(11L, 10, 12));
+        Long id = response.id();
+        Booking stored = repository.findById(id).orElseThrow();
+        stored.setStatus(BookingStatus.EXPIRED);
+        repository.save(stored);
+        // when + then
+        assertThatThrownBy(() -> service.cancel(id))
+                .isInstanceOf(BookingNotCancellableException.class)
+                .hasMessageContaining("EXPIRED");
+    }
+
+    @Test
+    void whenCreatedCancelledAndCreatedSameHours() {
+        // given
+        BookingResponse response = service.create(booking(11L, 10, 12));
+        Long id = response.id();
+        service.cancel(id);
+        // when
+        service.create(booking(11L, 10, 12));
+        // then
+        assertThat(repository.findAll())
+                .hasSize(2)
+                .extracting(Booking::getStatus)
+                .containsExactlyInAnyOrder(BookingStatus.CANCELLED, BookingStatus.PENDING);
+
+    }
 }
