@@ -263,8 +263,8 @@ curl -X POST http://localhost:8082/api/bookings \
   -d '{
     "userId":"John",
     "resourceId":12,
-    "startTime":"2027-01-01T11:00:00Z",
-    "endTime":"2027-01-01T12:00:00Z"
+    "startTime":"2030-01-01T11:00:00Z",
+    "endTime":"2030-01-01T12:00:00Z"
 }'
 ```
 
@@ -279,8 +279,8 @@ Location: 	http://localhost:8082/api/bookings/12
   "id": 12,
   "resourceId": 12,
   "userId": "John",
-  "startTime": "2027-01-01T11:00:00Z",
-  "endTime": "2027-01-01T12:00:00Z",
+  "startTime": "2030-01-01T11:00:00Z",
+  "endTime": "2030-01-01T12:00:00Z",
   "status": "PENDING"
 }
 ```
@@ -316,7 +316,8 @@ Location: 	http://localhost:8082/api/bookings/12
 
 #### DELETE /api/bookings/{id}
 
-Delete switch status to CANCELLED and free space
+Cancels a booking.
+The row is not deleted: its status changes to CANCELLED and the time slot becomes free
 
 ##### Example Request
 
@@ -326,11 +327,63 @@ curl -X DELETE http://localhost:8082/api/bookings/62
 
 ##### Status Codes
 
-| Status | Meaning                                                        |
-|--------|----------------------------------------------------------------|
-| 204    | Booking deleted                                                |
-| 404    | Booking not found                                              |
-| 409    | Resource can't be Cancelled if has Cancelled of Expired status |
+| Status | Meaning                                                       |
+|--------|---------------------------------------------------------------|
+| 204    | Booking cancelled                                             |
+| 404    | Booking not found                                             |
+| 409    | Booking can't be Cancelled if has Cancelled or Expired status |
+
+#### POST /api/bookings/{id}/confirm
+
+Confirms a booking. Only bookings in PENDING status can be confirmed.
+POST is used because this is a named action with its own business rule, not a general edit of the resource
+
+##### Example Request
+
+```bash
+curl -X POST http://localhost:8082/api/bookings/26/confirm
+```
+
+##### Example Response
+
+```json
+
+{
+  "id": 26,
+  "resourceId": 1,
+  "userId": "John",
+  "startTime": "2030-01-01T11:00:00Z",
+  "endTime": "2030-01-01T12:00:00Z",
+  "status": "CONFIRMED"
+}
+```
+
+##### Status Codes
+
+| Status | Meaning                       |
+|--------|-------------------------------|
+| 200    | Booking confirmed             |
+| 404    | Booking not found             |
+| 409    | Booking is not Pending status |
+
+```json
+
+{
+  "detail": "Booking cannot be confirmed in status: CONFIRMED",
+  "instance": "/api/bookings/27/confirm",
+  "status": 409,
+  "title": "Conflict"
+}
+```
+
+```json
+{
+  "detail": "Booking with id: 77 not found",
+  "instance": "/api/bookings/77/confirm",
+  "status": 404,
+  "title": "Not Found"
+}
+```
 
 ## Design decisions
 

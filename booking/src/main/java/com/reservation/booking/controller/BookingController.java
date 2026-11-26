@@ -33,4 +33,9 @@ public class BookingController {
         bookingService.cancel(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{id}/confirm")
+    public ResponseEntity<BookingResponse> confirm(@PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.confirm(id));
+    }
 }

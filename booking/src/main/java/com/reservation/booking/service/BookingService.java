@@ -4,6 +4,7 @@ import com.reservation.booking.dto.BookingRequest;
 import com.reservation.booking.dto.BookingResponse;
 import com.reservation.booking.entity.Booking;
 import com.reservation.booking.entity.BookingStatus;
+import com.reservation.booking.exception.BookingNotConfirmableException;
 import com.reservation.booking.exception.BookingNotFoundException;
 import com.reservation.booking.exception.BookingNotCancellableException;
 import com.reservation.booking.repository.BookingRepository;
@@ -55,10 +56,22 @@ public class BookingService {
         Booking booking = repository.findById(id)
                 .orElseThrow(() -> new BookingNotFoundException(id));
         BookingStatus status = booking.getStatus();
-        if (status != BookingStatus.CONFIRMED && status != BookingStatus.PENDING) {
+        if (!status.isActive()) {
             throw new BookingNotCancellableException(status);
         }
         booking.setStatus(BookingStatus.CANCELLED);
+    }
+
+    @Transactional
+    public BookingResponse confirm(Long id) {
+        Booking booking = repository.findById(id)
+                .orElseThrow(() -> new BookingNotFoundException(id));
+        BookingStatus status = booking.getStatus();
+        if (!status.isPending()) {
+            throw new BookingNotConfirmableException(status);
+        }
+        booking.setStatus(BookingStatus.CONFIRMED);
+        return BookingResponse.from(booking);
     }
 
     public List<BookingResponse> findAll() {
