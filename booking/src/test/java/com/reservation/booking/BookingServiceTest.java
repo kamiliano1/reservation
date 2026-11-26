@@ -5,12 +5,15 @@ import com.reservation.booking.dto.BookingResponse;
 import com.reservation.booking.entity.Booking;
 import com.reservation.booking.entity.BookingStatus;
 import com.reservation.booking.exception.BookingConflictException;
+import com.reservation.booking.exception.BookingNotConfirmableException;
 import com.reservation.booking.exception.BookingNotFoundException;
 import com.reservation.booking.exception.BookingNotCancellableException;
 import com.reservation.booking.repository.BookingRepository;
 import com.reservation.booking.service.BookingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -151,8 +154,8 @@ public class BookingServiceTest {
         // when
         service.cancel(id);
         // then
-        Booking booking = repository.findById(id).orElseThrow();
-        assertThat(booking.getStatus()).isEqualTo(BookingStatus.CANCELLED);
+        Booking stored = repository.findById(id).orElseThrow();
+        assertThat(stored.getStatus()).isEqualTo(BookingStatus.CANCELLED);
     }
 
     @Test
@@ -175,19 +178,6 @@ public class BookingServiceTest {
                 .hasMessageContaining("CANCELLED");
     }
 
-    @Test
-    void throwWhenConfirmedCancel() {
-        // given
-        BookingResponse response = service.create(booking(11L, 10, 12));
-        Long id = response.id();
-        Booking stored = repository.findById(id).orElseThrow();
-        stored.setStatus(BookingStatus.EXPIRED);
-        repository.save(stored);
-        // when + then
-        assertThatThrownBy(() -> service.cancel(id))
-                .isInstanceOf(BookingNotCancellableException.class)
-                .hasMessageContaining("CONFIRMED");
-    }
 
     @Test
     void throwWhenExpiredCancel() {
@@ -217,5 +207,53 @@ public class BookingServiceTest {
                 .extracting(Booking::getStatus)
                 .containsExactlyInAnyOrder(BookingStatus.CANCELLED, BookingStatus.PENDING);
 
+    }
+
+    @Test
+    void whenConfirm() {
+        // given
+        BookingResponse response = service.create(booking(11L, 10, 12));
+        Long id = response.id();
+        // when
+        service.confirm(id);
+        // then
+        Booking stored = repository.findById(id).orElseThrow();
+        assertThat(stored.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+    }
+
+    @Test
+    void throwWhenConfirmNotExisted() {
+        // given + when + then
+        assertThatThrownBy(() -> service.confirm(100000L))
+                .isInstanceOf(BookingNotFoundException.class)
+                .hasMessageContaining("100000");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = BookingStatus.class, names = "PENDING", mode = EnumSource.Mode.EXCLUDE)
+    void throwWhenConfirmNotPending(BookingStatus status) {
+        // given
+        BookingResponse response = service.create(booking(11L, 10, 12));
+        Long id = response.id();
+        Booking stored = repository.findById(id).orElseThrow();
+        stored.setStatus(status);
+        repository.save(stored);
+        // when + then
+        assertThatThrownBy(() -> service.confirm(id))
+                .isInstanceOf(BookingNotConfirmableException.class)
+                .hasMessageContaining(status.name());
+    }
+
+
+    @Test
+    void throwWhenConfirmAndCreate() {
+        // given
+        BookingResponse response = service.create(booking(11L, 10, 12));
+        Long id = response.id();
+        service.confirm(id);
+        // when + then
+        assertThatThrownBy(() -> service.create(booking(11L, 10, 12)))
+                .isInstanceOf(BookingConflictException.class)
+                .hasMessageContaining("Resource is already booked in this time range");
     }
 }

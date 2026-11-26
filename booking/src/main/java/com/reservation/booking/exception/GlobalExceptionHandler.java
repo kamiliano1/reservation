@@ -35,7 +35,12 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BookingNotCancellableException.class)
-    ProblemDetail handleStatusUpdate(BookingNotCancellableException ex) {
+    ProblemDetail handleNotCancellable(BookingNotCancellableException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(BookingNotConfirmableException.class)
+    ProblemDetail handleNotConfirmable(BookingNotConfirmableException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
 
