@@ -22,6 +22,7 @@ Resource service is completed. Booking service is in progress.
     - UserId comes from Request, not Keycloak
     - Everyone can cancel other booking
     - Pending is not disappear automatically
+    - Booking must end before 24:00
 
 ## Getting started
 

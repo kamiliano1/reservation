@@ -8,5 +8,15 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+  http:
+    clients:
+      connect-timeout: 1s
+    serviceclient:
+      resource:
+        base-url: ${RESOURCE_SERVICE_URL:http://localhost:8081}
+        connect-timeout: 1s
+        read-timeout: 3s
 server:
   port: 8082
+resource-service:
+  url: ${RESOURCE_SERVICE_URL:http://localhost:8081}
