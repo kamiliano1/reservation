@@ -1,9 +1,12 @@
 package com.reservation.booking;
 
+import com.reservation.booking.clients.ResourceLookup;
 import com.reservation.booking.dto.BookingRequest;
 import com.reservation.booking.dto.BookingResponse;
+import com.reservation.booking.dto.ResourceDto;
 import com.reservation.booking.entity.Booking;
 import com.reservation.booking.entity.BookingStatus;
+import com.reservation.booking.entity.ResourceType;
 import com.reservation.booking.exception.BookingConflictException;
 import com.reservation.booking.exception.BookingNotConfirmableException;
 import com.reservation.booking.exception.BookingNotFoundException;
@@ -17,13 +20,17 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest(properties = {
         "spring.datasource.username=test",
@@ -38,6 +45,9 @@ public class BookingServiceTest {
     @Autowired
     BookingService service;
 
+    @MockitoBean
+    ResourceLookup resourceLookup;
+
     private static final Instant DAY = Instant.now()
             .plus(2, ChronoUnit.DAYS)
             .truncatedTo(ChronoUnit.DAYS);
@@ -45,6 +55,25 @@ public class BookingServiceTest {
     @BeforeEach
     void cleanDatabase() {
         repository.deleteAll();
+    }
+
+    @BeforeEach
+    void setUp() {
+        when(resourceLookup
+                .getResource(11L))
+                .thenReturn(resource(11L, 8, 20));
+        when(resourceLookup
+                .getResource(12L))
+                .thenReturn(resource(12L, 8, 20));
+
+    }
+
+    private ResourceDto resource(Long id, int open, int close) {
+        return new ResourceDto(11L, "TennisCourt 1st",
+                ResourceType.TENNIS_COURT,
+                new BigDecimal("100.00"),
+                LocalTime.of(open, 0),
+                LocalTime.of(close, 0));
     }
 
     private BookingRequest booking(Long resourceId, long fromHour, long toHour) {

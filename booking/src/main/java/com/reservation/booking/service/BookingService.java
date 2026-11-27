@@ -1,19 +1,20 @@
 package com.reservation.booking.service;
 
+import com.reservation.booking.clients.ResourceLookup;
 import com.reservation.booking.dto.BookingRequest;
 import com.reservation.booking.dto.BookingResponse;
+import com.reservation.booking.dto.ResourceDto;
 import com.reservation.booking.entity.Booking;
 import com.reservation.booking.entity.BookingStatus;
-import com.reservation.booking.exception.BookingNotConfirmableException;
-import com.reservation.booking.exception.BookingNotFoundException;
-import com.reservation.booking.exception.BookingNotCancellableException;
+import com.reservation.booking.exception.*;
 import com.reservation.booking.repository.BookingRepository;
-import com.reservation.booking.exception.BookingConflictException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
+import java.time.*;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -21,6 +22,7 @@ import java.util.List;
 public class BookingService {
 
     private final BookingRepository repository;
+    private final ResourceLookup resourceLookup;
 
     private void validateTime(BookingRequest request) {
         if (!request.startTime().isBefore(request.endTime())) {
@@ -36,8 +38,26 @@ public class BookingService {
         booking.setStatus(BookingStatus.PENDING);
     }
 
+    private void validateOpeningHours(BookingRequest request, ResourceDto resource) {
+
+        ZonedDateTime start = request.startTime().atZone(ZoneOffset.UTC);
+        LocalDate startDate = start.toLocalDate();
+        LocalTime startTime = start.toLocalTime();
+        ZonedDateTime end = request.endTime().atZone(ZoneOffset.UTC);
+        LocalDate endDate = end.toLocalDate();
+        LocalTime endTime = end.toLocalTime();
+        if (!startDate.isEqual(endDate)) {
+            throw new BookingNotSameDayException();
+        }
+        if (startTime.isBefore(resource.openTime()) || endTime.isAfter(resource.closeTime())) {
+            throw new BookingOutsideOpeningHoursException(resource.openTime(), resource.closeTime());
+        }
+    }
+
     public BookingResponse create(BookingRequest request) {
         validateTime(request);
+        ResourceDto resource = resourceLookup.getResource(request.resourceId());
+        validateOpeningHours(request, resource);
         Booking booking = new Booking();
         applyRequest(booking, request);
         try {

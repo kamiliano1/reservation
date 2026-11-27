@@ -30,8 +30,28 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BookingNotFoundException.class)
-    ProblemDetail handleNotFound(BookingNotFoundException ex) {
+    ProblemDetail handleBookingNotFound(BookingNotFoundException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    ProblemDetail handleResourceNotFound(ResourceNotFoundException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(ResourceServiceUnavailableException.class)
+    ProblemDetail handleServiceUnavailable(ResourceServiceUnavailableException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, "Resource service is currently unavailable");
+    }
+
+    @ExceptionHandler(BookingNotSameDayException.class)
+    ProblemDetail handleNotTheSameDay(BookingNotSameDayException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(BookingOutsideOpeningHoursException.class)
+    ProblemDetail handleOutsideOpeningHours(BookingOutsideOpeningHoursException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
     @ExceptionHandler(BookingNotCancellableException.class)
