@@ -7,15 +7,13 @@ import com.reservation.booking.dto.ResourceDto;
 import com.reservation.booking.entity.Booking;
 import com.reservation.booking.entity.BookingStatus;
 import com.reservation.booking.entity.ResourceType;
-import com.reservation.booking.exception.BookingConflictException;
-import com.reservation.booking.exception.BookingNotConfirmableException;
-import com.reservation.booking.exception.BookingNotFoundException;
-import com.reservation.booking.exception.BookingNotCancellableException;
+import com.reservation.booking.exception.*;
 import com.reservation.booking.repository.BookingRepository;
 import com.reservation.booking.service.BookingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,6 +23,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -66,10 +66,11 @@ public class BookingServiceTest {
                 .getResource(12L))
                 .thenReturn(resource(12L, 8, 20));
 
+
     }
 
     private ResourceDto resource(Long id, int open, int close) {
-        return new ResourceDto(11L, "TennisCourt 1st",
+        return new ResourceDto(id, "TennisCourt 1st",
                 ResourceType.TENNIS_COURT,
                 new BigDecimal("100.00"),
                 LocalTime.of(open, 0),
@@ -284,5 +285,61 @@ public class BookingServiceTest {
         assertThatThrownBy(() -> service.create(booking(11L, 10, 12)))
                 .isInstanceOf(BookingConflictException.class)
                 .hasMessageContaining("Resource is already booked in this time range");
+    }
+
+    @Test
+    void createBookingSameHoursAsResource() {
+        // given + when
+        BookingResponse response = service.create(booking(11L, 8, 20));
+        // then
+        ZonedDateTime start = response.startTime().atZone(ZoneOffset.UTC);
+        ZonedDateTime end = response.endTime().atZone(ZoneOffset.UTC);
+        assertThat(response.status()).isEqualTo(BookingStatus.PENDING);
+        assertThat(start.getHour()).isEqualTo(8);
+        assertThat(end.getHour()).isEqualTo(20);
+    }
+
+    @Test
+    void throwWhenResourceDoesNotExist() {
+        // given
+        when(resourceLookup
+                .getResource(100L))
+                .thenThrow(new ResourceNotFoundException(100L));
+        //  when + then
+        assertThatThrownBy(() -> service.create(booking(100L, 8, 20)))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("100");
+        assertThat(repository.findAll()).isEmpty();
+
+    }
+
+    @Test
+    void throwWhenResourceIsUnavailable() {
+        // given
+        when(resourceLookup
+                .getResource(1000L))
+                .thenThrow(new ResourceServiceUnavailableException(new RuntimeException("connection refused"), "Resource service is currently unavailable"));
+        // when + then
+        assertThatThrownBy(() -> service.create(booking(1000L, 8, 20)))
+                .isInstanceOf(ResourceServiceUnavailableException.class);
+        assertThat(repository.findAll()).isEmpty();
+    }
+
+
+    @ParameterizedTest
+    @CsvSource(value = {"7,20", "10,21"})
+    void throwWhenBookingOutsideReservationHours(int from, int to) {
+        // given + when + then
+        assertThatThrownBy(() -> service.create(booking(11L, from, to)))
+                .isInstanceOf(BookingOutsideOpeningHoursException.class)
+                .hasMessageContaining("08:00 to 20:00");
+        assertThat(repository.findAll()).isEmpty();
+    }
+
+    @Test
+    void throwWhenBookingTillMidnight() {
+        assertThatThrownBy(() -> service.create(booking(11L, 8, 24)))
+                .isInstanceOf(BookingNotSameDayException.class);
+        assertThat(repository.findAll()).isEmpty();
     }
 }

@@ -22,11 +22,13 @@ Resource service is completed. Booking service is in progress.
     - UserId comes from Request, not Keycloak
     - Everyone can cancel other booking
     - Pending is not disappear automatically
-    - Booking must end before 24:00
+    - Booking must end before 24:00 the same day
+    - Time only in UTC Zone
 
 ## Getting started
 
 Requirements: Java 21, Docker, Maven.
+Working Resource Service address: `RESOURCE_SERVICE_URL`
 
 - Download or clone repository `git clone https://github.com/kamiliano1/reservation.git`
 - Copy `.env.example` as `.env` set `POSTGRES_PASSWORD` and `POSTGRES_USER` in root directory, `copy .env.example .env`
@@ -292,7 +294,9 @@ Location: 	http://localhost:8082/api/bookings/12
 |--------|-----------------------------------|
 | 201    | Booking created                   |
 | 400    | Wrong data provided               |
+| 404    | Resource not found                |
 | 409    | Already booked in this time range |
+| 503    | Resource service is unavailable   |
 
 ```json
 {
@@ -312,6 +316,15 @@ Location: 	http://localhost:8082/api/bookings/12
   "errors": {
     "resourceId": "must not be null"
   }
+}
+```
+
+```json
+{
+  "detail": "Booked reservation must start and end at the same day",
+  "instance": "/api/bookings",
+  "status": 400,
+  "title": "Bad Request"
 }
 ```
 
